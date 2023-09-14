@@ -1,0 +1,210 @@
+Explorando dados no DbBrowser
+Base: http://dados.prefeitura.sp.gov.br/it/dataset/cadastro-dos-estabelecimentos-de-saude 
+
+Antes das consultas
+
+Etapa 1: Criar um novo banco de dados
+Etapa 2: Importar uma tabela de um CSV para o seu banco de dados
+Etapa 3: verificar as configurações de importação da tabela (encoding, delimitadores, cabeçalho) e dar um nome para a tabela. Aqui eu chamei a minha tabela de "infosp".
+Consultas
+
+1) Quantas linhas tem a minha tabela?
+
+select * 
+from infosp
+
+Se eu quiser diminuir o número de resultados -- isso é importante para limitar a amostra e dar eficiência à minha consulta em casos de tabelas muito grandes, não é bom mandar rodar em tudo de uma vez:
+
+select * 
+from infosp 
+limit 10
+
+2) Quantos tipos de estabelecimentos eu tenho na minha planilha?
+
+select distinct tipo
+from infosp
+
+Se eu quiser incluir uma coluna para saber o código de cada um dos tipos:
+
+select distinct tipo, sa_tipo 
+from infosp
+
+E se eu quiser ordenar os resultados pelo código do tipo
+
+select distinct tipo, sa_tipo 
+from infosp
+order by sa_tipo desc
+
+
+3) Quais são os estabelecimentos com o maior número de leitos?
+
+select * 
+from infosp 
+order by leitos desc 
+limit 10
+
+**Problema: leito não é uma coluna numérica, tá sendo lida como texto. Para mudar, temos que ir em estrutura do banco de dados, clica com o botão direito e seleciona "modificar tabela", daí escolhe qual vai ser o tipo de dado
+
+E se eu não quiser ver todas as colunas da minha tabela, mas só algumas?
+
+select distrito, estabeleci, leitos 
+from infosp 
+order by leitos desc 
+limit 20
+
+
+4) E se eu quiser fazer análises apenas na região sul de São Paulo?
+
+select *
+from infoSP
+where regiao5 = "Sul"
+
+Where é o filtro do SQL
+No caso de campos numéricos, eu não preciso usar o = , posso usar > ou <. É possível usar != para indicar que você quer pegar todos os resultados menos aquele (exemplo: where regiao5 != "Sul") Nesse caso vai pegar todas as regiões menos a sul) 
+
+select *
+from infoSP
+where leitos > 100
+
+Dá pra fazer dois filtros ao mesmo tempo? Como por exemplo hospitais com mais de 100 leitos?
+
+select *
+from infoSP
+where leitos > 100 and sa_classe = "7"
+
+E se eu quiser filtrar por um termo que pode vir de diferentes formas nos meus registros?
+
+select *
+from infoSP
+where estabeleci like "%CASA%"
+
+Like é a expressão em SQL pra dizer que eu quero buscar um termo que não é exatamente igual aquele. Eu uso o % % pra indicar que esse termo pode estar entre quaisquer outros, antes ou depois dele.
+
+5) E se eu quiser filtrar essa consulta por um tipo específico de estabelecimento?
+
+select *
+from infoSP
+where regiao5 = "Sul" and tipo like "%HOSPITAL%"
+
+Ainda dá pra filtrar por uma quantidade mínima de leitos, se eu quiser:
+
+select *
+from infoSP
+where regiao5 = "Sul" and tipo like "%HOSPITAL%" and leitos > 100
+
+Se eu quiser deixar apenas algumas colunas específicas no resultado dessa minha consulta:
+
+select distrito, regiao5, estabeleci, bairro, tipo, leitos
+from infoSP
+where regiao5 = "Sul" and tipo like "%HOSPITAL%"
+
+6) Quantos leitos estão disponíveis em todo município de SP?
+
+Aqui eu to usando um agregador que é o SUM, e ele cria uma coluna nova, somando todos os valores da coluna que eu indico
+
+select sum(leitos)
+from infoSP
+
+Se eu quiser filtrar só por um tipo específico de estabelecimento:
+
+select sum(leitos)
+from infoSP
+where tipo = "HOSPITAL"
+
+
+7) Quantos estabelecimentos eu tenho na zona sul de SP?
+
+Cada linha é um estabelecimento, então eu vou usar uma outra função de agregar, mas uma que conta o número de registros em uma determinada consulta. Vou contar (usando a função count) todas as linhas da minha tabela (*), mas colocando um filtro: quero saber só os estabelecimentos da zona sul paulista:
+
+select count(*)
+from infosp
+where regiao5 = "Sul"
+
+Ps: além da função COUNT(), posso usar outras funções de cálculo, como AVG(), que é a média, e SUM(), pra somar.
+
+Mas e se eu quiser saber quantos estabelecimentos tem em cada região, sem precisar ficar fazendo essa consulta pra cada uma delas? Aí eu tenho que usar o group_by, que é o equivalente à tabela dinâmica do Excel.
+
+select count(*), regiao5
+from infosp
+group by regiao5
+
+E se eu quiser saber, além de quantos estabelecimentos, quantos leitos eu tenho por região?
+
+select count(*), regiao5, sum(leitos)
+from infosp
+group by regiao5
+
+Se eu quiser que o nome das colunas que eu to criando por agregação fique mais inteligível, dá pra eu renomear essas colunas criadas pelo sum ou pelo count usando o "as":
+
+select 
+	count(*) as Total_Estabelecimentos, 
+	regiao5, 
+	sum(leitos) as Total_leitos
+from infosp
+group by regiao5
+
+Isso é uma boa prática quando estamos fazendo queries muito complexas, pra não corrermos o risco de nos perdermos ao interpretar os resultados que aparecem.
+
+Ainda daria para utilizar um filtro combinado aí, se eu quisesse ver os resultados só com classe = hospital: 
+
+select 
+	count(*) as Total_Estabelecimentos, 
+	regiao5, 
+	sum(leitos) as Total_leitos
+from infosp
+where classe = "HOSPITAL"
+group by regiao5
+
+O SQL é meio chato, você precisa seguir essa ordem: primeiro select, depois from, depois where e depois o group by. Se quisesse ordenar, viria depois do group by.
+
+select 
+	count(*) as Total_Estabelecimentos, 
+	regiao5, 
+	sum(leitos) as Total_leitos
+from infosp
+where classe = "HOSPITAL"
+group by regiao5
+order by Total_leitos desc
+
+
+8) Quantos leitos estão disponíveis por bairro de SP?
+
+select bairro, sum(leitos)
+from infosp
+group BY bairro
+order by sum(leitos) desc
+
+
+9) Quantos estabelecimentos existem em cada distrito de SP?
+
+
+select distrito, count(estabeleci)
+from infosp
+group BY distrito
+order by count(estabeleci) desc
+
+10) Modificando a tabela: alterando um registro para unificar duas categorias de registro (estadual e municipal) e criar uma categoria única (público)
+
+* Lembrar de importar uma nova tabela para nao modificar a original com a qual estamos trabalhando
+
+Primeiro preciso modificar a tabela pra poder incluir um campo novo. Depois vamos usar o comando update pra mudar os registros dentro desse campo novo
+
+update infoSP
+set COD_PUBLICA = 1
+where DEPADM="Estadual" OR DEPADM="Municipal"
+
+11) Salvando queries mais úteis (views ou vista)
+
+Uma consulta útil pode ser salva como vista, na mesma opção que é possível exportar um CSV.
+
+
+****
+Extra: Como juntar duas tabelas? Utilizar o JOIN (e a chave necessária para juntar as duas tabelas é 
+
+select bairro, sum(leitos)
+from infosp
+JOIN tabela2
+ON coluna-infosp = coluna-tabela2
+group BY bairro
+order by sum(leitos) desc
+
